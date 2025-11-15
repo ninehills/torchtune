@@ -197,6 +197,9 @@ def batch_to_device(batch: dict, device: torch.device) -> None:
             batch[k] = v.to(device)
         elif _SUPPORTS_FLEX_ATTENTION and isinstance(v, BlockMask):
             batch[k] = v.to(device)
+        # fix ValueError: To use batch_to_device, all elements in the batch must be a dict or Tensor. Got key "pixel_values" with value of type <class 'list'>
+        elif isinstance(v, list):
+            batch[k] = [item.to(device) for item in v if isinstance(item, torch.Tensor)]
         else:
             raise ValueError(
                 f"""To use batch_to_device, all elements in the batch must be a dict or Tensor.
