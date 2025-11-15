@@ -841,7 +841,19 @@ class FullModelHFCheckpointer(_CheckpointerInterface):
                 split_state_dicts: dict[str, dict[str, torch.Tensor]] = {}
                 total_size = 0
                 for key, weight in state_dict[training.MODEL_KEY].items():
-                    cpt_idx = self._weight_map[key]
+                    # https://github.com/meta-pytorch/torchtune/issues/2857
+                    if key not in self._weight_map:
+                        # For tied embeddings, assign lm_head.weight to the same shard as model.embed_tokens.weight
+                        if key == "lm_head.weight" and "model.embed_tokens.weight" in self._weight_map:
+                            cpt_idx = self._weight_map["model.embed_tokens.weight"]
+                            # Also update the weight map for consistency
+                            self._weight_map[key] = cpt_idx
+                        else:
+                            # Fallback: assign to the first shard if no other logic applies
+                            cpt_idx = "0001"
+                            self._weight_map[key] = cpt_idx
+                    else:
+                        cpt_idx = self._weight_map[key]
 
                     # initialize dict
                     if cpt_idx not in split_state_dicts:
